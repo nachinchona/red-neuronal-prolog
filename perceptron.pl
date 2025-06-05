@@ -2,7 +2,7 @@
 % neuron(ID, Function-Arg, Connections, Output)
 :- dynamic input_buffer/3.
 % input_buffer(NeuronID, ListOfWeightedInputs, Counter)
-:- include("neurons.pl").
+:- include("sigmoidTrained.pl").
 :- use_module(library(dcg/basics)).
 
 neurons_per_layer(13).
@@ -128,12 +128,16 @@ propagate(ID, Output, [TargetID-Weight | Rest]) :-
 %Reestablece todos los input buffers
 restart :-
     forall(input_buffer(Id, Inputs, C),
-	   (retractall(input_buffer(Id,Inputs,C)),
-	    assertz(input_buffer(Id,[],0)))).
+	   (retract(input_buffer(Id,Inputs,C)),
+	    assertz(input_buffer(Id,[],0)))),
+    forall(neuron(NId,F,[],Out),
+	   (retract(neuron(NId,F,[],Out)),
+	    assertz(neuron(NId,F,[],0.0)))).
+
 
 %Funcion usada por las neuronas
-leq(X,Y,R):- X > Y, R = 0.0.
-leq(X,Y,R):- X =< Y, R = 1.0.
+leq(X,Y,0.0):- X > Y.
+leq(X,Y,1.0):- X =< Y.
 
 %Calculamos diferente para positivos y negativos para evitar float overflow
 %El 2do argumento es para mantener interfaz que permite usar cualquier funcion
