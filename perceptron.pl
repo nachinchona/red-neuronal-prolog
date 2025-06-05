@@ -2,18 +2,16 @@
 % neuron(ID, Function-Arg, Connections, Output)
 :- dynamic input_buffer/3.
 % input_buffer(NeuronID, ListOfWeightedInputs, Counter)
-:- dynamic expected_output/2.
-% expected_output(NeuronID,ExpectedOutput)
-:- include("trained.pl").
+:- include("neurons.pl").
 :- use_module(library(dcg/basics)).
 
 neurons_per_layer(13).
 
-run_training(N) :-
+run_training(N, TrainedFile) :-
     phrase_from_file(data(EntrySets), "wine.trainingset"),
     numlist(1, N, Iterations),
     train_n_times(Iterations, EntrySets),
-    save_neurons('trained.pl').
+    save_neurons(TrainedFile).
 
 run_testing:-
     phrase_from_file(data(EntrySets), "wine.test"),
@@ -136,6 +134,17 @@ restart :-
 %Funcion usada por las neuronas
 leq(X,Y,R):- X > Y, R = 0.0.
 leq(X,Y,R):- X =< Y, R = 1.0.
+
+%Calculamos diferente para positivos y negativos para evitar float overflow
+%El 2do argumento es para mantener interfaz que permite usar cualquier funcion
+sigmoid(X, _, Y) :-
+    (   X >= 0
+    ->  ExpNegX is exp(-X),
+        Y is 1 / (1 + ExpNegX)
+    ;   ExpX is exp(X),
+        Y is ExpX / (1 + ExpX)
+    ).
+
 
 
 
