@@ -1,11 +1,20 @@
+
 :- dynamic neuron/4.
 % neuron(ID, Function-Arg, Connections, Output)
 :- dynamic input_buffer/3.
 % input_buffer(NeuronID, ListOfWeightedInputs, Counter)
-:- include("sigmoidTrained.pl").
+
 :- use_module(library(dcg/basics)).
 
 neurons_per_layer(13).
+
+include_neurons(File):-
+    reset,
+    include(File).
+
+reset:-
+    retractall(neuron(_,_,_,_)),
+    retractall(input_buffer(_,_,_)).
 
 run_training(N, TrainedFile) :-
     phrase_from_file(data(EntrySets), "wine.trainingset"),
