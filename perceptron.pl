@@ -2,11 +2,10 @@
 % neuron(ID, Function-Arg, Connections, Output)
 :- dynamic input_buffer/3.
 % input_buffer(NeuronID, ListOfWeightedInputs, Counter)
-:- include('leqtrained.pl').
+:- include('leqneurons.pl').
 :- use_module(library(dcg/basics)).
 
 neurons_per_layer(13).
-
 
 reset:-
     retractall(neuron(_,_,_,_)),
@@ -47,9 +46,6 @@ train_n_times([I|Rest], EntrySets) :-
 %Guarda las neuronas entrenadas
 save_neurons(File) :-
     tell(File),
-    forall(neuron(Id, F, C, O),
-	   (retract(neuron(Id, F, C, O)),
-	   assertz(neuron(Id, F, C, 0.0)))),
     listing(neuron/4),
     listing(input_buffer/3),
     told.
@@ -72,8 +68,8 @@ test([],CorrectAnswers,Total):-
 
 test([[ClassNum|EntrySet]|NextEntrySets], CorrectAnswers, T) :-
     load_first_layer(EntrySet, 1),
-    (  (neuron((N,ClassNum), _, [], 1.0),
-       forall((neuron(ID, _, [], Output), ID \= (N,ClassNum)),
+    ((neuron((N,ClassNum), _, [], 1.0),
+      forall((neuron(ID, _, [], Output), ID \= (N,ClassNum)),
 	      Output = 0.0))
     ->  C1 is CorrectAnswers + 1
     ;   C1 = CorrectAnswers
@@ -98,11 +94,11 @@ load_first_layer([H|T],C):-
 update_weights(_,[],_,[]).
 update_weights(ClassNum, [N-Weight|Weights], EntryValue, [N-NewWeight|NewWeights]) :-
      neuron(N, _, _, Output),
-    (   N = (_,ClassNum)
+    (   N = (_, ClassNum)
     ->  ExpectedOutput = 1
     ;   ExpectedOutput = 0
     ),
-    NewWeight is Weight + 0.1*(Output - ExpectedOutput)*EntryValue,
+    NewWeight is Weight + 0.01*(ExpectedOutput - Output)*EntryValue,
     update_weights(ClassNum, Weights, EntryValue, NewWeights).
 
 % Dar entrada a neurona y activarla si ya tiene todas
@@ -134,15 +130,11 @@ propagate(ID, Output, [TargetID-Weight | Rest]) :-
 restart :-
     forall(input_buffer(Id, Inputs, C),
 	   (retract(input_buffer(Id,Inputs,C)),
-	    assertz(input_buffer(Id,[],0)))),
-    forall(neuron(NId,F,[],Out),
-	   (retract(neuron(NId,F,[],Out)),
-	    assertz(neuron(NId,F,[],0.0)))).
-
+	    assertz(input_buffer(Id,[],0)))).
 
 %Funcion usada por las neuronas
-leq(X,Y,0.0):- X > Y.
-leq(X,Y,1.0):- X =< Y.
+geq(X,Y,1.0):- X >= Y.
+geq(X,Y,0.0):- X < Y.
 
 %Calculamos diferente para positivos y negativos para evitar float overflow
 %El 2do argumento es para mantener interfaz que permite usar cualquier funcion
