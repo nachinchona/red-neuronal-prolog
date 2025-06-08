@@ -2,25 +2,27 @@
 % neuron(ID, Function-Arg, Connections, Output)
 :- dynamic input_buffer/3.
 % input_buffer(NeuronID, ListOfWeightedInputs, Counter)
-:- include('leqneurons.pl').
+:- include('geqneurons.pl').
 :- use_module(library(dcg/basics)).
+
+:- dynamic best_accuracy/1.
 
 neurons_per_layer(13).
 
-reset:-
+reset :-
     retractall(neuron(_,_,_,_)),
     retractall(input_buffer(_,_,_)).
 
 run_training(N, TrainedFile) :-
     phrase_from_file(data(EntrySets), "wine.trainingset"),
     numlist(1, N, Iterations),
-    train_n_times(Iterations, EntrySets),
-    save_neurons(TrainedFile).
+    train_n_times(Iterations, EntrySets, TrainedFile).
 
-run_testing:-
+run_testing :-
     phrase_from_file(data(EntrySets), "wine.test"),
     length(EntrySets,N),
-    test(EntrySets,0,N).
+    test(EntrySets,0,C,I,N),
+    format("Finished. Correct: ~w, Incorrect: ~w, Total: ~w~n",[C, I, N]).
 
 %DCG para parsear datos a una lista
 %------------------------------------------------------------------------
@@ -37,17 +39,29 @@ number_or_float(N) --> integer(N).
 %------------------------------------------------------------------------
 
 %Permite repetir entrenamiento N veces y notifica por pantalla
-train_n_times([], _).
-train_n_times([I|Rest], EntrySets) :-
+train_n_times([], _, _).
+train_n_times([I|Rest], EntrySets, TrainedFile) :-
     train(EntrySets),
     format("Training iteration ~d~n", [I]),
-    train_n_times(Rest, EntrySets).
+    length(EntrySets,N),
+    test(EntrySets,0,C,_,N),
+    Accuracy is C / N,
+    format('Iteration ~w: Accuracy = ~2f%~n', [I, Accuracy*100]),
+     % Save best model
+    (best_accuracy(Best), Accuracy > Best ->
+        retractall(best_accuracy(_)),
+        assertz(best_accuracy(Accuracy)),
+        format('New best accuracy! Saving model...~n'),
+        save_neurons(TrainedFile)
+    ; true),
+    train_n_times(Rest, EntrySets, TrainedFile).
 
 %Guarda las neuronas entrenadas
 save_neurons(File) :-
     tell(File),
     listing(neuron/4),
     listing(input_buffer/3),
+    listing(best_accuracy/1),
     told.
 
 train([]).
@@ -62,11 +76,10 @@ train([[ClassNum|EntrySet]|NextEntrySets]):-
     restart,
     train(NextEntrySets).
 
-test([],CorrectAnswers,Total):-
-    IncorrectAnswers is Total - CorrectAnswers,
-    format("Finished. Correct: ~w, Incorrect: ~w, Total: ~w~n",[CorrectAnswers, IncorrectAnswers, Total]).
+test([],C, C, IncorrectAnswers, Total):-
+    IncorrectAnswers is Total - C.
 
-test([[ClassNum|EntrySet]|NextEntrySets], CorrectAnswers, T) :-
+test([[ClassNum|EntrySet]|NextEntrySets], CorrectAnswers, C, I, T) :-
     load_first_layer(EntrySet, 1),
     ((neuron((N,ClassNum), _, [], 1.0),
       forall((neuron(ID, _, [], Output), ID \= (N,ClassNum)),
@@ -75,7 +88,7 @@ test([[ClassNum|EntrySet]|NextEntrySets], CorrectAnswers, T) :-
     ;   C1 = CorrectAnswers
     ),
     restart,
-    test(NextEntrySets, C1, T).
+    test(NextEntrySets, C1, C, I, T).
 
 %Carga los input buffers de la primera capa de neuronas
 load_first_layer([],_).
